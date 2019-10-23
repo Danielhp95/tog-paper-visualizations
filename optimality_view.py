@@ -4,24 +4,15 @@ import numpy as np
 import scipy as sp
 
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from exploration_view import exploration_view
 from util import generate_random_winrate_matrix, generate_random_discrete_distribution 
 from util import compute_progression_of_nash_during_training
 from util import highlight_text
 
 
-@st.cache
-def compute_winrate_matrices(num_matrices):
-    matrices = {checkpoint: generate_random_winrate_matrix(size + 1)
-                for size, checkpoint in enumerate(range(100, 1001, 100))}
-    return matrices
-
-    
-def single_empirical_game_view():
+def optimality_view():
     name = 'Single empirical winrate game'
     st.write(f'# {name}')
 
@@ -88,14 +79,8 @@ def plot_progression_nash_equilibriums(progression_nash, highlight):
     plt.close()
 
 
-def run():
-    VIEWS = {'Optimality (external) measurements': single_empirical_game_view,
-             'Exploration (internal) measurements': exploration_view}
-    view_name = st.sidebar.selectbox("Choose view", list(VIEWS.keys()), 0)
-    view = VIEWS[view_name]
-
-    view()
-
-
-if __name__ == '__main__':
-    run()
+@st.cache
+def compute_winrate_matrices(num_matrices):
+    matrices = {checkpoint: generate_random_winrate_matrix(size + 1)
+                for size, checkpoint in enumerate(range(100, 1001, 100))}
+    return matrices

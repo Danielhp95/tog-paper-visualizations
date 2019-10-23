@@ -2,11 +2,13 @@ from typing import Dict, Tuple
 import numpy as np
 import streamlit as st
 import scipy as sp
+
+import matplotlib
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from util import generate_random_discrete_distribution
-from util import highlight_text
 from util import compute_progression_of_nash_during_training
 
 
@@ -27,7 +29,7 @@ def exploration_view():
 
     distributions = compute_distributions(range_checkpoint)
     # import ipdb; ipdb.set_trace()
-    plot_distances_between_nash_and_policy_sampling_distribution(distributions, checkpoint)
+    plot_distances_between_nash_and_policy_sampling_distribution(distributions)
 
     st.write('## Maxent Nash VS policy sampling distribution')
     plot_selected_policy_sampling_distribution_and_maxent_nash(maxent_nash=distributions[checkpoint][0],
@@ -50,9 +52,10 @@ def plot_selected_policy_sampling_distribution_and_maxent_nash(maxent_nash,
     width = 0.7
     indices = np.arange(len(maxent_nash.ravel()))
 
-    plt.bar(indices, maxent_nash.ravel(), width=width, 
+    fig, ax = plt.subplots(1,1)
+    ax.bar(indices, maxent_nash.ravel(), width=width,
             color='b', label='max-ent Nash')
-    plt.bar(indices, policy_sampling_distribution.ravel(),
+    ax.bar(indices, policy_sampling_distribution.ravel(),
             width=0.8*width, color='r', alpha=0.5, label='Policy Sampling Distribution')
 
     plt.title(f'Policy sampling distriubtion and maxent-Nash Equilibrium at checkpoint: {checkpoint}')
@@ -64,7 +67,7 @@ def plot_selected_policy_sampling_distribution_and_maxent_nash(maxent_nash,
     plt.close()
 
 
-def plot_distances_between_nash_and_policy_sampling_distribution(distributions, highlight):
+def plot_distances_between_nash_and_policy_sampling_distribution(distributions):
     x_ticks, wass_distances, kl_distances = generate_plot_elements_evolution_distance_plot(distributions)
 
     f, ax = plt.subplots(1, 1)
