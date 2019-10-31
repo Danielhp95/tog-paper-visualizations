@@ -1,7 +1,8 @@
 from typing import Dict, Tuple
 import streamlit as st
+import pickle
 import numpy as np
-import scipy as sp
+import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,32 +13,32 @@ from util import compute_progression_of_nash_during_training
 from util import highlight_text
 
 
-def optimality_view():
+def optimality_view(results_dir):
     name = 'Single empirical winrate game'
     st.write(f'# {name}')
+    st.write(f'# {results_dir}')
 
     selfplay_choice = st.sidebar.radio('Select Self-Play algorithm',
                                        ('Naive SP', 'Full History SP', 'Iterated Nash Response'))
 
-    min_checkpoint, max_checkpoint, step_checkpoint = 100, 1000, 100
-    range_checkpoint = range(min_checkpoint, max_checkpoint + 1, step_checkpoint)
+    progression_nash = pd.read_csv(f'{results_dir}/evolution_maxent_nash.csv', index_col=0)
+    winrate_matrices = pickle.load(open(f'{results_dir}/winrate_matrices.pickle', 'rb'))
+
+    min_checkpoint = int(progression_nash.index[0])
+    max_checkpoint = int(progression_nash.index[-1])
+    step_checkpoint = int(progression_nash.index[1] - progression_nash.index[0])
     checkpoint = st.sidebar.slider('Choose benchmarking checkpoint (episode number)',
                                    min_checkpoint, max_checkpoint, step=step_checkpoint)
 
-
-    progression_nash = compute_progression_of_nash_during_training(range_checkpoint)
 
     plot_progression_nash_equilibriums(progression_nash, highlight=checkpoint)
 
     st.write('## Winrate matrix and Logit matrix heatmaps')
 
-    matrices = compute_winrate_matrices(num_matrices=len(range_checkpoint))
-    winrate_matrix = matrices[checkpoint]
+    winrate_matrix = np.array(winrate_matrices[checkpoint])
     logit_matrix = np.log(winrate_matrix / (np.ones_like(winrate_matrix) - winrate_matrix))
 
     plot_game_matrices(winrate_matrix, logit_matrix)
-
-    st.write('## `TODO:` Nash marginals and joint heatmap (which joint actions / payoffs are most common)')
 
 
 def plot_game_matrices(winrate_matrix, logit_matrix):
@@ -62,9 +63,7 @@ def plot_game_matrices(winrate_matrix, logit_matrix):
 def plot_progression_nash_equilibriums(progression_nash, highlight):
     fig, ax = plt.subplots(1, 1)
     # Only show lower triangular
-    mask = np.zeros_like(progression_nash)
-    mask[np.triu_indices_from(mask, k=1)] = True
-    sns.heatmap(progression_nash.transpose(), annot=True, mask=mask, vmax=1.0, vmin=0.0,
+    sns.heatmap(progression_nash, annot=True, vmax=1.0, vmin=0.0,
                 cmap=sns.color_palette('RdYlGn_r')[::-1], cbar_kws={'label': 'Support under Nash'})
     # Workaround to prevent top and bottom of heatmaps to be cutoff
     # This is a known matplotlib bug

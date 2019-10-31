@@ -12,7 +12,7 @@ from util import generate_random_discrete_distribution
 from util import compute_progression_of_nash_during_training
 
 
-def exploration_view():
+def exploration_view(results_dir):
     name = 'Evolution of policy sampling distribution VS Nash averaging'
     st.write(f'# {name}')
 
