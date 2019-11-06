@@ -44,13 +44,16 @@ def optimality_view(results_dir):
 def plot_game_matrices(winrate_matrix, logit_matrix):
     fig, ax = plt.subplots(1, 2)
     ax[0].set_title('Empirical winrate matrix')
-    winrate_matrix_heatmap = sns.heatmap(winrate_matrix, annot=True, ax=ax[0], cmap=sns.color_palette('RdYlGn_r')[::-1],
+    max_comprehensible_size = 8
+    show_annotations = winrate_matrix.shape[0] <= max_comprehensible_size
+    winrate_matrix_heatmap = sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax[0], cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
                                          vmin=0.0, vmax=1.0, cbar_kws={'label': 'Head to head winrates'})
     ax[0].set_xlabel('Agent ID')
     ax[0].set_ylabel('Agent ID')
 
     ax[1].set_title('Log-odds winrate matrix')
-    logit_matrix_heatmap = sns.heatmap(logit_matrix, annot=True, ax=ax[1], cmap=sns.color_palette('RdYlGn_r')[::-1],
+    logit_matrix_heatmap = sns.heatmap(logit_matrix, annot=show_annotations, ax=ax[1],
+                                       cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
                                        cbar=False)
     ax[1].set_xlabel('Agent ID')
     ax[0].set_ylim(len(winrate_matrix) + 0.2, -0.2)
@@ -63,8 +66,10 @@ def plot_game_matrices(winrate_matrix, logit_matrix):
 def plot_progression_nash_equilibriums(progression_nash, highlight):
     fig, ax = plt.subplots(1, 1)
     # Only show lower triangular
-    sns.heatmap(progression_nash, annot=True, vmax=1.0, vmin=0.0,
-                cmap=sns.color_palette('RdYlGn_r')[::-1], cbar_kws={'label': 'Support under Nash'})
+    max_comprehensible_size = 8
+    show_annotations = len(progression_nash.shape) >= max_comprehensible_size
+    sns.heatmap(progression_nash, annot=show_annotations, vmax=1.0, vmin=0.0,
+                cmap=sns.color_palette('RdYlGn_r', 50)[::-1], cbar_kws={'label': 'Support under Nash'})
     # Workaround to prevent top and bottom of heatmaps to be cutoff
     # This is a known matplotlib bug
     ax.set_ylim(len(progression_nash) + 0.2, -0.2)
