@@ -27,7 +27,7 @@ def run():
 
 
 def display_selected_directory(selected_dir: str):
-    if st.sidebar.checkbox(f'list directory {selected_dir}: '): 
+    if st.sidebar.checkbox(f'list directory {selected_dir}: '):
         for f in os.listdir(selected_dir): st.sidebar.markdown(f)
 
 
