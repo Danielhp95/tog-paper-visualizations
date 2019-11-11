@@ -15,26 +15,31 @@ from util import compute_progression_of_nash_during_training
 from util import highlight_text
 
 
-def load_results(experiment_dir: str, selfplay_choice: str):
+def load_results(experiment_dir: str, run_id: str, selfplay_choice: str):
     configs = yaml.load(open(f'{experiment_dir}experiment_parameters.yml'), Loader=yaml.FullLoader)
     selfplay_schemes = configs['experiment']['self_play_training_schemes']
 
-    progression_nash = pd.read_csv(f'{experiment_dir}{selfplay_choice}/results/evolution_maxent_nash.csv', index_col=0)
-    winrate_matrices = pickle.load(open(f'{experiment_dir}{selfplay_choice}/results/winrate_matrices.pickle', 'rb'))
+    progression_nash = pd.read_csv(f'{experiment_dir}{run_id}/{selfplay_choice}/results/evolution_maxent_nash.csv', index_col=0)
+    winrate_matrices = pickle.load(open(f'{experiment_dir}{run_id}/{selfplay_choice}/results/winrate_matrices.pickle', 'rb'))
 
-    final_winrate_matrix = pickle.load(open(f'{experiment_dir}/final_winrate_matrix.pickle', 'rb'))
-    final_nash           = pickle.load(open(f'{experiment_dir}/final_maxent_nash.pickle', 'rb'))
+    final_winrate_matrix = pickle.load(open(f'{experiment_dir}{run_id}/final_winrate_matrix.pickle', 'rb'))
+    final_nash           = pickle.load(open(f'{experiment_dir}{run_id}/final_maxent_nash.pickle', 'rb'))
     return selfplay_schemes, final_winrate_matrix, final_nash, \
            progression_nash, winrate_matrices
 
 
 def optimality_view(experiment_dir):
-    st.write(f'# Optimality view')
+    # TODO: refactor somehow, this is not pretty
+    experiment_runs = [d for d in listdir(experiment_dir) if isdir(join(experiment_dir, d))]
+    run_id = st.sidebar.selectbox('Select experiment run_id', experiment_runs, 0)
+    results_dir = f'{experiment_dir}{run_id}/'
+    run_dirs = [d for d in listdir(results_dir) if isdir(join(results_dir, d))]
 
-    dirs = [d for d in listdir(experiment_dir) if isdir(join(experiment_dir, d))]
-    selfplay_choice = st.sidebar.radio('Select Self-Play algorithm', dirs)
+    selfplay_choice = st.sidebar.radio('Select Self-Play algorithm', run_dirs)
 
-    selfplay_schemes, final_winrate_matrix, final_nash, progression_nash, winrate_matrices = load_results(experiment_dir, selfplay_choice)
+    st.write(f'# Optimality view for {selfplay_choice} experiment run: {run_id}')
+
+    selfplay_schemes, final_winrate_matrix, final_nash, progression_nash, winrate_matrices = load_results(experiment_dir, run_id, selfplay_choice)
 
     min_checkpoint = int(progression_nash.index[0])
     max_checkpoint = int(progression_nash.index[-1])
