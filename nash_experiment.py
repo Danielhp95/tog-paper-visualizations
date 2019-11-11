@@ -1,8 +1,9 @@
+from functools import reduce
 import logging
 import pickle
 import os
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import yaml
 import torch
@@ -17,13 +18,45 @@ from regym.environments.task import Task
 from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import self_play_training
 from regym.training_schemes import SelfPlayTrainingScheme, NaiveSelfPlay, FullHistorySelfPlay
 from regym.rl_algorithms import build_PPO_Agent, AgentHook
+from regym.rl_algorithms import load_population_from_path
 
 from regym.game_theory import compute_winrate_matrix_metagame, compute_nash_averaging
 
 
-def experiment(task: Task, training_agent, self_play_scheme: SelfPlayTrainingScheme,
+def experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayTrainingScheme],
                checkpoint_at_iterations: List[int], base_path: str, seed: int,
                benchmarking_episodes: int):
+    trained_agent_paths = []
+    for sp_scheme in sp_schemes:
+        for agent in agents:
+            training_agent = agent.clone(training=True)
+            path = f'{base_path}/{sp_scheme.name}-{agent.name}'
+            trained_agent_paths += [path]
+            train_and_evaluate(task=task, self_play_scheme=sp_scheme,
+                               training_agent=training_agent,
+                               checkpoint_at_iterations=checkpoint_at_iterations,
+                               benchmarking_episodes=experiment_config['benchmarking_episodes'],
+                               base_path=path, seed=seed)
+    logging.info('Loading all trained agents')
+    joint_trained_population = reduce(lambda succ, path: succ + load_population_from_path(path),
+                                      trained_agent_paths, [])
+    logging.info('START winrate matrix computation of all trained policies')
+    final_winrate_matrix = compute_winrate_matrix_metagame(joint_trained_population,
+                                                           episodes_per_matchup=5,
+                                                           env=task.env)
+    logging.info('START Nash averaging computation of all trained policies')
+    maxent_nash, nash_avg = compute_nash_averaging(final_winrate_matrix,
+                                                   perform_logodds_transformation=True)
+    logging.info('Experiment FINISHED!')
+    pickle.dump(final_winrate_matrix,
+                open(f'{base_path}/final_winrate_matrix.pickle', 'wb'))
+    pickle.dump(maxent_nash,
+                open(f'{base_path}/final_maxent_nash.pickle', 'wb'))
+
+
+def train_and_evaluate(task: Task, training_agent, self_play_scheme: SelfPlayTrainingScheme,
+                       checkpoint_at_iterations: List[int], base_path: str, seed: int,
+                       benchmarking_episodes: int):
     logger = logging.getLogger(f'Experiment: Task: {task.name}. SP: {self_play_scheme.name}. Agent: {training_agent.name}')
 
     np.random.seed(seed)
@@ -104,6 +137,7 @@ def training_phase(task: Task, training_agent, self_play_scheme: SelfPlayTrainin
     completed_iterations, start_time = 0, time.time()
 
     trained_policy_save_directory = base_path
+    final_iteration = max(checkpoint_at_iterations)
 
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
@@ -154,7 +188,7 @@ def initialize_experiment(experiment_config, agents_config):
     return task, sp_schemes, agents, seed
 
 
-def load_configs(config_file_path):
+def load_configs(config_file_path: str):
     all_configs = yaml.load(open(config_file_path), Loader=yaml.FullLoader)
     experiment_config = all_configs['experiment']
     agents_config = filter_relevant_agent_configurations(experiment_config,
@@ -162,23 +196,25 @@ def load_configs(config_file_path):
     return experiment_config, agents_config
 
 
+def save_used_configs(experiment_config: Dict, agents_config: Dict, save_path: str):
+    all_relevant_config = {'experiment': experiment_config, 'agents': agents_config}
+    with open(f'{save_path}/experiment_parameters.yml', 'w') as outfile:
+        yaml.dump(all_relevant_config, outfile, default_flow_style=False)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     config_file_path = './config.yaml'
     experiment_config, agents_config = load_configs(config_file_path)
+    base_path = experiment_config['experiment_id']
+    save_used_configs(experiment_config, agents_config, save_path=base_path)
 
     task, sp_schemes, agents, seed = initialize_experiment(experiment_config, agents_config)
-    checkpoint_at_iterations = list(range(0, 50, 10))
+    checkpoint_at_iterations = list(range(0, 90, 10))
 
-    base_path = experiment_config['experiment_id']
-    import ipdb; ipdb.set_trace()
-    for sp_scheme in sp_schemes:
-        for agent in agents:
-            training_agent = agent.clone(training=True)
-            path = f'{base_path}/{sp_scheme.name}-{agent.name}'
-            experiment(task=task, self_play_scheme=sp_scheme,
-                       training_agent=training_agent,
-                       checkpoint_at_iterations=checkpoint_at_iterations,
-                       benchmarking_episodes=experiment_config['benchmarking_episodes'],
-                       base_path=path, seed=seed)
+    experiment(task=task, selfplay_schemes=sp_schemes,
+               agents=agents,
+               checkpoint_at_iterations=checkpoint_at_iterations,
+               benchmarking_episodes=experiment_config['benchmarking_episodes'],
+               base_path=base_path, seed=seed)
