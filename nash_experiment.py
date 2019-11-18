@@ -1,3 +1,4 @@
+import sys
 from functools import reduce
 import logging
 import pickle
@@ -144,7 +145,7 @@ def training_phase(task: Task, training_agent, self_play_scheme: SelfPlayTrainin
          trajectories) = train_for_given_iterations(task.env, training_agent, self_play_scheme,
                                                     menagerie, menagerie_path,
                                                     next_training_iterations, completed_iterations, logger)
-        logger.info('Training completion: {}%'.format(100 * target_iteration / final_iteration)) 
+        logger.info('Training completion: {}%'.format(100 * target_iteration / final_iteration))
         del trajectories # we are not using them here
         completed_iterations += next_training_iterations
         save_trained_policy(trained_agent,
@@ -184,8 +185,14 @@ def initialize_experiment(experiment_config, agents_config):
     sp_schemes = initialize_training_schemes(experiment_config['self_play_training_schemes'])
     agents = initialize_agents(experiment_config['environment'], agents_config)
 
-    seed = experiment_config['seed']
-    return task, sp_schemes, agents, seed
+    seeds = list(map(int, experiment_config['seeds']))
+
+    number_of_runs = experiment_config['number_of_runs']
+    if len(seeds) < number_of_runs:
+        print(f'Number of random seeds does not match "number of runs" config value. Genereting new seeds"')
+        seeds = np.random.randint(0, 10000, number_of_runs).tolist()
+
+    return task, sp_schemes, agents, seeds
 
 
 def load_configs(config_file_path: str):
@@ -206,16 +213,22 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('Nash experiment')
 
-    config_file_path = './config.yaml'
+    config_file_path = sys.argv[1]
     experiment_config, agents_config = load_configs(config_file_path)
     base_path = experiment_config['experiment_id']
     if not os.path.exists(base_path): os.mkdir(base_path)
     number_of_runs = experiment_config['number_of_runs']
+
+    task, sp_schemes, agents, seeds = initialize_experiment(experiment_config, agents_config)
+    experiment_config['seeds'] = seeds
+
     save_used_configs(experiment_config, agents_config, save_path=base_path)
 
-    task, sp_schemes, agents, seed = initialize_experiment(experiment_config, agents_config)
-    checkpoint_at_iterations = list(range(0, 20, 10))
+    step_size = agents_config['ppo']['horizon'] * 1
+    number_checkpoints = 100
+    checkpoint_at_iterations = list(range(0, step_size * number_checkpoints, step_size))
 
+    experiment_durations = list()
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
         start_time = time.time()
@@ -223,6 +236,7 @@ if __name__ == '__main__':
                    agents=agents,
                    checkpoint_at_iterations=checkpoint_at_iterations,
                    benchmarking_episodes=experiment_config['benchmarking_episodes'],
-                   base_path=f'{base_path}/run-{run_id}', seed=seed)
-        experiment_duration = time.time() - start_time
-        logger.info(f'Finished run: {run_id}. Duration: {experiment_duration} (seconds)\n')
+                   base_path=f'{base_path}/run-{run_id}', seed=seeds[run_id])
+        experiment_durations.append(time.time() - start_time)
+        logger.info(f'Finished run: {run_id}. Duration: {experiment_durations[-1]} (seconds)\n')
+    logger.info('ALL DONE: total duration: {}'.format(sum(experiment_durations)))
