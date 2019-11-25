@@ -13,7 +13,7 @@ import pandas as pd
 
 from regym.util.experiment_parsing import initialize_agents
 from regym.util.experiment_parsing import initialize_training_schemes
-from regym.util.experiment_parsing import filter_relevant_agent_configurations
+from regym.util.experiment_parsing import filter_relevant_configurations
 from regym.environments import generate_task
 from regym.environments.task import Task
 from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import self_play_training
@@ -180,9 +180,9 @@ def save_trained_policy(trained_agent, save_path: str, logger):
     AgentHook(trained_agent.clone(training=False), save_path=save_path)
 
 
-def initialize_experiment(experiment_config, agents_config):
+def initialize_experiment(experiment_config, agents_config, self_play_configs):
     task = generate_task(experiment_config['environment'])
-    sp_schemes = initialize_training_schemes(experiment_config['self_play_training_schemes'])
+    sp_schemes = initialize_training_schemes(self_play_configs)
     agents = initialize_agents(experiment_config['environment'], agents_config)
 
     seeds = list(map(int, experiment_config['seeds']))
@@ -198,13 +198,20 @@ def initialize_experiment(experiment_config, agents_config):
 def load_configs(config_file_path: str):
     all_configs = yaml.load(open(config_file_path), Loader=yaml.FullLoader)
     experiment_config = all_configs['experiment']
-    agents_config = filter_relevant_agent_configurations(experiment_config,
-                                                         all_configs['agents'])
-    return experiment_config, agents_config
+    self_play_configs = filter_relevant_configurations(experiment_config,
+                                                       target_configs=all_configs['self_play_training_schemes'],
+                                                       target_key='self_play_training_schemes')
+    agents_config = filter_relevant_configurations(experiment_config,
+                                                   target_configs=all_configs['agents'],
+                                                   target_key='algorithms')
+    return experiment_config, agents_config, self_play_configs
 
 
-def save_used_configs(experiment_config: Dict, agents_config: Dict, save_path: str):
-    all_relevant_config = {'experiment': experiment_config, 'agents': agents_config}
+def save_used_configs(experiment_config: Dict, agents_config: Dict,
+                      self_play_configs: Dict, save_path: str):
+    all_relevant_config = {'experiment': experiment_config,
+                           'agents': agents_config,
+                           'self_play_training_schemes': self_play_configs}
     with open(f'{save_path}/experiment_parameters.yml', 'w') as outfile:
         yaml.dump(all_relevant_config, outfile, default_flow_style=False)
 
@@ -214,15 +221,18 @@ if __name__ == '__main__':
     logger = logging.getLogger('Nash experiment')
 
     config_file_path = sys.argv[1]
-    experiment_config, agents_config = load_configs(config_file_path)
+    experiment_config, agents_config, self_play_configs = load_configs(config_file_path)
     base_path = experiment_config['experiment_id']
     if not os.path.exists(base_path): os.mkdir(base_path)
     number_of_runs = experiment_config['number_of_runs']
 
-    task, sp_schemes, agents, seeds = initialize_experiment(experiment_config, agents_config)
+    task, sp_schemes, agents, seeds = initialize_experiment(experiment_config,
+                                                            agents_config,
+                                                            self_play_configs)
     experiment_config['seeds'] = seeds
 
-    save_used_configs(experiment_config, agents_config, save_path=base_path)
+    save_used_configs(experiment_config, agents_config,
+                      self_play_configs, save_path=base_path)
 
     step_size = agents_config['ppo']['horizon'] * 1
     number_checkpoints = 100
