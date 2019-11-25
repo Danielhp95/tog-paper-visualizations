@@ -58,26 +58,32 @@ def optimality_view(experiment_dir):
     st.write('## Winrate matrix and Logit matrix heatmaps')
 
     winrate_matrix = np.array(winrate_matrices[checkpoint])
-    logit_matrix = np.log(winrate_matrix / (np.ones_like(winrate_matrix) - winrate_matrix))
+    # TODO: fix this monstrosity
+    nash_support = np.array(list(filter(lambda x: not np.isnan(x),
+                                        progression_nash.iloc[int(checkpoint / step_checkpoint)])))
+    plot_winrate_matrix_and_support(winrate_matrix, nash_support)
 
-    plot_game_matrices(winrate_matrix, logit_matrix)
 
-
-def plot_game_matrices(winrate_matrix, logit_matrix):
-    fig, ax = plt.subplots(1, 1)
-    ax.set_title('Empirical winrate matrix')
+def plot_winrate_matrix_and_support(winrate_matrix, nash_support):
+    fig, ax = plt.subplots(1, 2, gridspec_kw={'width_ratios': [10, 1]})
     max_comprehensible_size = 8
     show_annotations = winrate_matrix.shape[0] <= max_comprehensible_size
+    plot_winrate_matrix(ax[0], winrate_matrix, show_annotations)
+    plot_nash_support(ax[1], nash_support, show_ticks=True)
+
+    plt.tight_layout()
+    st.pyplot()
+    plt.close()
+
+
+def plot_winrate_matrix(ax, winrate_matrix, show_annotations):
+    ax.set_title('Empirical winrate matrix')
     sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
                 cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
                 vmin=0.0, vmax=1.0, cbar_kws={'label': 'Head to head winrates'})
     ax.set_xlabel('Agent ID')
     ax.set_ylabel('Agent ID')
-
     ax.set_ylim(len(winrate_matrix) + 0.2, -0.2)
-    plt.tight_layout()
-    st.pyplot()
-    plt.close()
 
 
 def plot_progression_nash_equilibriums(progression_nash, highlight):
@@ -110,7 +116,7 @@ def plot_joint_final_winrate_matrix_and_nash(winrate_matrix: np.ndarray,
                               population_size, number_populations)
     plot_population_delimiting_lines(ax, winrate_matrix.shape[0],
                                      number_populations)
-    plot_final_nash_equilibrium(ax[1], nash, winrate_matrix.shape[0])
+    plot_nash_support(ax[1], nash, show_ticks=False)
 
     fig.suptitle('Cross self-play nash evaluation')
 
@@ -151,11 +157,15 @@ def plot_population_delimiting_lines(ax, length, number_populations):
                      color='b', lw=2)
 
 
-def plot_final_nash_equilibrium(ax, nash, length):
+def plot_nash_support(ax, nash, show_ticks):
     max_support = np.max(nash)
     column_nash = np.reshape(nash, (nash.shape[0], 1))
     sns.heatmap(column_nash, ax=ax,
                 vmin=0, vmax=max_support,
                 cmap=sns.color_palette('RdYlGn_r', 50)[::-1])
-    ax.set_xticks([])
-    ax.set_yticks([]) # TODO Add episodes checkpoints where the agents were frozen
+    if show_ticks:
+        ax.set_xticks([])
+    else:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    ax.set_ylim(len(nash) + 0.2, -0.2)
