@@ -64,23 +64,17 @@ def optimality_view(experiment_dir):
 
 
 def plot_game_matrices(winrate_matrix, logit_matrix):
-    fig, ax = plt.subplots(1, 2)
-    ax[0].set_title('Empirical winrate matrix')
+    fig, ax = plt.subplots(1, 1)
+    ax.set_title('Empirical winrate matrix')
     max_comprehensible_size = 8
     show_annotations = winrate_matrix.shape[0] <= max_comprehensible_size
-    sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax[0],
+    sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
                 cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
                 vmin=0.0, vmax=1.0, cbar_kws={'label': 'Head to head winrates'})
-    ax[0].set_xlabel('Agent ID')
-    ax[0].set_ylabel('Agent ID')
+    ax.set_xlabel('Agent ID')
+    ax.set_ylabel('Agent ID')
 
-    ax[1].set_title('Log-odds winrate matrix')
-    sns.heatmap(logit_matrix, annot=show_annotations, ax=ax[1],
-                cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
-                cbar=False)
-    ax[1].set_xlabel('Agent ID')
-    ax[0].set_ylim(len(winrate_matrix) + 0.2, -0.2)
-    ax[1].set_ylim(len(logit_matrix) + 0.2, -0.2)
+    ax.set_ylim(len(winrate_matrix) + 0.2, -0.2)
     plt.tight_layout()
     st.pyplot()
     plt.close()
@@ -111,7 +105,7 @@ def plot_joint_final_winrate_matrix_and_nash(winrate_matrix: np.ndarray,
                                              selfplay_schemes: List[str]):
     population_size = int(winrate_matrix.shape[0] / len(selfplay_schemes))
     number_populations = len(selfplay_schemes)
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 1]})
     plot_final_winrate_matrix(ax[0], winrate_matrix, selfplay_schemes,
                               population_size, number_populations)
     plot_population_delimiting_lines(ax, winrate_matrix.shape[0],
@@ -133,14 +127,16 @@ def plot_joint_final_winrate_matrix_and_nash(winrate_matrix: np.ndarray,
 def plot_final_winrate_matrix(ax, winrate_matrix, selfplay_schemes,
                               population_size, number_populations):
     sns.heatmap(winrate_matrix, annot=False, ax=ax,
-                vmin=0, vmax=1, cbar=False, linewidths=0.4,
+                vmin=0, vmax=1, cbar=False,
                 cmap=sns.color_palette('RdYlGn_r', 50)[::-1])
 
     first_tick = population_size / 2
-    xticks = [first_tick + i * population_size
-              for i in range(number_populations)]
-    ax.set_xticks(xticks)
+    ticks = [first_tick + i * population_size
+             for i in range(number_populations)]
+    ax.set_xticks(ticks)
     ax.set_xticklabels(selfplay_schemes)
+    ax.set_yticks(ticks)
+    ax.set_yticklabels(selfplay_schemes)
     ax.set_yticks([]) # TODO Add episodes checkpoints where the agents were frozen
 
 
@@ -156,9 +152,10 @@ def plot_population_delimiting_lines(ax, length, number_populations):
 
 
 def plot_final_nash_equilibrium(ax, nash, length):
+    max_support = np.max(nash)
     column_nash = np.reshape(nash, (nash.shape[0], 1))
-    sns.heatmap(column_nash, ax=ax, square=True,
-                vmin=0, vmax=1, linewidths=0.4,
+    sns.heatmap(column_nash, ax=ax,
+                vmin=0, vmax=max_support,
                 cmap=sns.color_palette('RdYlGn_r', 50)[::-1])
     ax.set_xticks([])
     ax.set_yticks([]) # TODO Add episodes checkpoints where the agents were frozen
