@@ -1,11 +1,11 @@
 experiment:
     experiment_id: 'experiment-test'
     environment: 'RockPaperScissors-v0'
-    benchmarking_episodes: 5
-    number_of_runs: 2
+    benchmarking_episodes: 10
+    number_of_runs: 10
     self_play_training_schemes: ['fullhistoryselfplay', 'naiveselfplay', 'halfhistoryselfplay']
     algorithms: ['ppo']
-    seed: 69
+    seeds: [69]
 
 agents:
     ppo:
