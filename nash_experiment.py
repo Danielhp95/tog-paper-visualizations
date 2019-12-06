@@ -11,12 +11,14 @@ import torch
 import numpy as np
 import pandas as pd
 
+import gym_rock_paper_scissors
+import gym_kuhn_poker
+
 from regym.util.experiment_parsing import initialize_agents
 from regym.util.experiment_parsing import initialize_training_schemes
 from regym.util.experiment_parsing import filter_relevant_configurations
-from regym.environments import generate_task
-from regym.environments.task import Task
-from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import self_play_training
+from regym.environments import generate_task, EnvType, Task
+from regym.rl_loops.multiagent_loops import self_play_training
 from regym.training_schemes import SelfPlayTrainingScheme, NaiveSelfPlay, FullHistorySelfPlay
 from regym.rl_algorithms import build_PPO_Agent, AgentHook
 from regym.rl_algorithms import load_population_from_path
@@ -24,7 +26,27 @@ from regym.rl_algorithms import load_population_from_path
 from regym.game_theory import compute_winrate_matrix_metagame, compute_nash_averaging
 
 
-def experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayTrainingScheme],
+def run_multiple_experiments(task, agents, sp_schemes,
+                             experiment_config: Dict, seeds: List[int],
+                             checkpoint_at_iterations: List[int],
+                             base_path: str,
+                             number_of_runs: int,
+                             logger: logging.Logger):
+    experiment_durations = list()
+    for run_id in range(number_of_runs):
+        logger.info(f'Starting run: {run_id}')
+        start_time = time.time()
+        single_experiment(task=task, selfplay_schemes=sp_schemes,
+                          agents=agents,
+                          checkpoint_at_iterations=checkpoint_at_iterations,
+                          benchmarking_episodes=experiment_config['benchmarking_episodes'],
+                          base_path=f'{base_path}/run-{run_id}', seed=seeds[run_id])
+        experiment_durations.append(time.time() - start_time)
+        logger.info(f'Finished run: {run_id}. Duration: {experiment_durations[-1]} (seconds)\n')
+    logger.info('ALL DONE: total duration: {}'.format(sum(experiment_durations)))
+
+
+def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayTrainingScheme],
                checkpoint_at_iterations: List[int], base_path: str, seed: int,
                benchmarking_episodes: int):
     trained_agent_paths = []
@@ -44,7 +66,7 @@ def experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayTraining
     logging.info('START winrate matrix computation of all trained policies')
     final_winrate_matrix = compute_winrate_matrix_metagame(joint_trained_population,
                                                            episodes_per_matchup=5,
-                                                           env=task.env)
+                                                           task=task)
     logging.info('START Nash averaging computation of all trained policies')
     maxent_nash, nash_avg = compute_nash_averaging(final_winrate_matrix,
                                                    perform_logodds_transformation=True)
@@ -78,7 +100,7 @@ def train_and_evaluate(task: Task, training_agent, self_play_scheme: SelfPlayTra
 
 def compute_optimality_metrics(population, task, benchmarking_episodes, logger):
     logger.info('Computing winrate matrix')
-    winrate_matrix = compute_winrate_matrix_metagame(population, env=task.env,
+    winrate_matrix = compute_winrate_matrix_metagame(population, task=task,
                                                      episodes_per_matchup=benchmarking_episodes)
     winrate_submatrices = [winrate_matrix[:i, :i] for i in range(1, len(winrate_matrix) + 1)]
     logger.info('Computing nash averagings for all submatrices')
@@ -142,7 +164,7 @@ def training_phase(task: Task, training_agent, self_play_scheme: SelfPlayTrainin
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
         (menagerie, trained_agent,
-         trajectories) = train_for_given_iterations(task.env, training_agent, self_play_scheme,
+         trajectories) = train_for_given_iterations(task, training_agent, self_play_scheme,
                                                     menagerie, menagerie_path,
                                                     next_training_iterations, completed_iterations, logger)
         logger.info('Training completion: {}%'.format(100 * target_iteration / final_iteration))
@@ -159,14 +181,14 @@ def training_phase(task: Task, training_agent, self_play_scheme: SelfPlayTrainin
     return agents_to_benchmark
 
 
-def train_for_given_iterations(env, training_agent, self_play_scheme,
+def train_for_given_iterations(task, training_agent, self_play_scheme,
                                menagerie, menagerie_path,
                                next_training_iterations, completed_iterations, logger):
 
     training_start = time.time()
     (menagerie, trained_agent,
-     trajectories) = self_play_training(env=env, training_agent=training_agent, self_play_scheme=self_play_scheme,
-                                        target_episodes=next_training_iterations, iteration=completed_iterations,
+     trajectories) = self_play_training(task=task, training_agent=training_agent, self_play_scheme=self_play_scheme,
+                                        target_episodes=next_training_iterations, initial_episode=completed_iterations,
                                         menagerie=menagerie, menagerie_path=menagerie_path)
     training_duration = time.time() - training_start
     logger.info('Training between iterations [{}, {}]: {:.2} seconds'.format(
@@ -181,9 +203,10 @@ def save_trained_policy(trained_agent, save_path: str, logger):
 
 
 def initialize_experiment(experiment_config, agents_config, self_play_configs):
-    task = generate_task(experiment_config['environment'])
-    sp_schemes = initialize_training_schemes(self_play_configs)
-    agents = initialize_agents(experiment_config['environment'], agents_config)
+    env, env_type = experiment_config['environment']
+    task = generate_task(env, EnvType(env_type))
+    sp_schemes = initialize_training_schemes(self_play_configs, task)
+    agents = initialize_agents(task, agents_config)
 
     seeds = list(map(int, experiment_config['seeds']))
 
@@ -216,10 +239,18 @@ def save_used_configs(experiment_config: Dict, agents_config: Dict,
         yaml.dump(all_relevant_config, outfile, default_flow_style=False)
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger('Nash experiment')
 
+def setup_loggers(base_path: str):
+    log_format = logging.Formatter(fmt='[%(asctime)s]:%(levelname)s:%(name)s: %(message)s', datefmt='%m-%d %H:%M:%S')
+    logging.basicConfig(format='[%(asctime)s]:%(levelname)s:%(name)s: %(message)s',
+                        datefmt='%m-%d %H:%M:%S',
+                        level=logging.DEBUG)
+    file_handler = logging.FileHandler(filename=f'{base_path}/log.logs')
+    file_handler.setFormatter(log_format)
+    logging.getLogger().addHandler(file_handler)
+
+
+if __name__ == '__main__':
     config_file_path = sys.argv[1]
     experiment_config, agents_config, self_play_configs = load_configs(config_file_path)
     base_path = experiment_config['experiment_id']
@@ -235,18 +266,12 @@ if __name__ == '__main__':
                       self_play_configs, save_path=base_path)
 
     step_size = agents_config['ppo']['horizon'] * 1
-    number_checkpoints = 100
+    number_checkpoints = 3
     checkpoint_at_iterations = list(range(0, step_size * number_checkpoints, step_size))
 
-    experiment_durations = list()
-    for run_id in range(number_of_runs):
-        logger.info(f'Starting run: {run_id}')
-        start_time = time.time()
-        experiment(task=task, selfplay_schemes=sp_schemes,
-                   agents=agents,
-                   checkpoint_at_iterations=checkpoint_at_iterations,
-                   benchmarking_episodes=experiment_config['benchmarking_episodes'],
-                   base_path=f'{base_path}/run-{run_id}', seed=seeds[run_id])
-        experiment_durations.append(time.time() - start_time)
-        logger.info(f'Finished run: {run_id}. Duration: {experiment_durations[-1]} (seconds)\n')
-    logger.info('ALL DONE: total duration: {}'.format(sum(experiment_durations)))
+    setup_loggers(base_path)
+    logger = logging.getLogger('Nash experiment')
+
+    run_multiple_experiments(task, agents, sp_schemes, experiment_config, seeds,
+                             checkpoint_at_iterations, base_path,
+                             number_of_runs, logger)
