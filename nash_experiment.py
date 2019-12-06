@@ -1,7 +1,7 @@
 import sys
 from functools import reduce
 import logging
-import pickle
+import dill
 import os
 import time
 from typing import List, Tuple, Dict
@@ -60,6 +60,9 @@ def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayT
                                checkpoint_at_iterations=checkpoint_at_iterations,
                                benchmarking_episodes=experiment_config['benchmarking_episodes'],
                                base_path=path, seed=seed)
+            # Self-play schemes like PSRO contain useful information
+            dill.dump(sp_scheme, open(f'{path}/{sp_scheme.name}.pickle', 'wb'))
+
     logging.info('Loading all trained agents')
     joint_trained_population = reduce(lambda succ, path: succ + load_population_from_path(path),
                                       trained_agent_paths, [])
@@ -71,9 +74,9 @@ def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayT
     maxent_nash, nash_avg = compute_nash_averaging(final_winrate_matrix,
                                                    perform_logodds_transformation=True)
     logging.info('Experiment FINISHED!')
-    pickle.dump(final_winrate_matrix,
+    dill.dump(final_winrate_matrix,
                 open(f'{base_path}/final_winrate_matrix.pickle', 'wb'))
-    pickle.dump(maxent_nash,
+    dill.dump(maxent_nash,
                 open(f'{base_path}/final_maxent_nash.pickle', 'wb'))
 
 
@@ -123,7 +126,7 @@ def save_winrate_matrices(winrate_submatrices, checkpoint_at_iterations, save_pa
     checkpoints_winrate_submatrices = {checkpoint: m
                                        for checkpoint, m in
                                        zip(checkpoint_at_iterations, winrate_submatrices)}
-    pickle.dump(checkpoints_winrate_submatrices,
+    dill.dump(checkpoints_winrate_submatrices,
                 open(f'{save_path}/winrate_matrices.pickle', 'wb'))
 
 
@@ -244,7 +247,7 @@ def setup_loggers(base_path: str):
     log_format = logging.Formatter(fmt='[%(asctime)s]:%(levelname)s:%(name)s: %(message)s', datefmt='%m-%d %H:%M:%S')
     logging.basicConfig(format='[%(asctime)s]:%(levelname)s:%(name)s: %(message)s',
                         datefmt='%m-%d %H:%M:%S',
-                        level=logging.DEBUG)
+                        level=logging.INFO)
     file_handler = logging.FileHandler(filename=f'{base_path}/log.logs')
     file_handler.setFormatter(log_format)
     logging.getLogger().addHandler(file_handler)
@@ -266,8 +269,10 @@ if __name__ == '__main__':
                       self_play_configs, save_path=base_path)
 
     step_size = agents_config['ppo']['horizon'] * 1
-    number_checkpoints = 3
-    checkpoint_at_iterations = list(range(0, step_size * number_checkpoints, step_size))
+    number_checkpoints = experiment_config['number_checkpoints']
+    checkpoint_at_iterations = list(range(step_size,
+                                          step_size * (number_checkpoints + 1),
+                                          step_size))
 
     setup_loggers(base_path)
     logger = logging.getLogger('Nash experiment')
