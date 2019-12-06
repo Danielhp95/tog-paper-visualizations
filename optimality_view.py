@@ -24,7 +24,7 @@ def load_results(experiment_dir: str, run_id: str, selfplay_choice: str):
 
     final_winrate_matrix = pickle.load(open(f'{experiment_dir}{run_id}/final_winrate_matrix.pickle', 'rb'))
     final_nash           = pickle.load(open(f'{experiment_dir}{run_id}/final_maxent_nash.pickle', 'rb'))
-    return selfplay_schemes, final_winrate_matrix, final_nash, \
+    return configs, selfplay_schemes, final_winrate_matrix, final_nash, \
            progression_nash, winrate_matrices
 
 
@@ -39,7 +39,8 @@ def optimality_view(experiment_dir):
 
     st.write(f'# Optimality view for {selfplay_choice} experiment run: {run_id}')
 
-    selfplay_schemes, final_winrate_matrix, final_nash, progression_nash, winrate_matrices = load_results(experiment_dir, run_id, selfplay_choice)
+    configs, selfplay_schemes, final_winrate_matrix, final_nash, \
+        progression_nash, winrate_matrices = load_results(experiment_dir, run_id, selfplay_choice)
 
     min_checkpoint = int(progression_nash.index[0])
     max_checkpoint = int(progression_nash.index[-1])
@@ -62,6 +63,13 @@ def optimality_view(experiment_dir):
     nash_support = np.array(list(filter(lambda x: not np.isnan(x),
                                         progression_nash.iloc[int(checkpoint / step_checkpoint)])))
     plot_winrate_matrix_and_support(winrate_matrix, nash_support)
+
+    show_experiment_config_file(configs)
+
+
+def show_experiment_config_file(configs):
+    st.write('## Config file for experiment')
+    st.write(configs)
 
 
 def plot_winrate_matrix_and_support(winrate_matrix, nash_support):
