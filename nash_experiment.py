@@ -25,6 +25,8 @@ from regym.rl_algorithms import load_population_from_path
 
 from regym.game_theory import compute_winrate_matrix_metagame, compute_nash_averaging
 
+from relative_population_performance_experiment import compute_relative_pop_performance_all_populations
+
 
 def run_multiple_experiments(task, agents, sp_schemes,
                              experiment_config: Dict, seeds: List[int],
@@ -62,6 +64,13 @@ def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayT
                                base_path=path, seed=seed)
             # Self-play schemes like PSRO contain useful information
             dill.dump(sp_scheme, open(f'{path}/{sp_scheme.name}.pickle', 'wb'))
+
+    logging.info('Computing relative performances')
+    relative_performances_path = f'{base_path}/relative_performances/'
+    if not os.path.exists(relative_performances_path): os.mkdir(relative_performances_path)
+    compute_relative_pop_performance_all_populations(trained_agent_paths, task,
+                                                     benchmarking_episodes,
+                                                     base_path=relative_performances_path)
 
     logging.info('Loading all trained agents')
     joint_trained_population = reduce(lambda succ, path: succ + load_population_from_path(path),
