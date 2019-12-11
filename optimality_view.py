@@ -17,15 +17,37 @@ from util import highlight_text
 
 def load_results(experiment_dir: str, run_id: str, selfplay_choice: str):
     configs = yaml.load(open(f'{experiment_dir}experiment_parameters.yml'), Loader=yaml.FullLoader)
-    selfplay_schemes = configs['experiment']['self_play_training_schemes']
 
-    progression_nash = pd.read_csv(f'{experiment_dir}{run_id}/{selfplay_choice}/results/evolution_maxent_nash.csv', index_col=0)
-    winrate_matrices = pickle.load(open(f'{experiment_dir}{run_id}/{selfplay_choice}/results/winrate_matrices.pickle', 'rb'))
+    run_path = f'{experiment_dir}{run_id}'
+    progression_nash = pd.read_csv(f'{run_path}/{selfplay_choice}/results/evolution_maxent_nash.csv', index_col=0)
+    winrate_matrices = pickle.load(open(f'{run_path}/{selfplay_choice}/results/winrate_matrices.pickle', 'rb'))
 
-    final_winrate_matrix = pickle.load(open(f'{experiment_dir}{run_id}/final_winrate_matrix.pickle', 'rb'))
-    final_nash           = pickle.load(open(f'{experiment_dir}{run_id}/final_maxent_nash.pickle', 'rb'))
-    return configs, selfplay_schemes, final_winrate_matrix, final_nash, \
-           progression_nash, winrate_matrices
+    final_winrate_matrix = pickle.load(open(f'{run_path}/final_winrate_matrix.pickle', 'rb'))
+    final_nash           = pickle.load(open(f'{run_path}/final_maxent_nash.pickle', 'rb'))
+
+    rel_pop_performances = load_relative_performances(f'{experiment_dir}',
+                                                      configs['experiment']['number_of_runs'],
+                                                      selfplay_choice)
+    return configs, final_winrate_matrix, final_nash, \
+           progression_nash, winrate_matrices, rel_pop_performances
+
+
+def load_relative_performances(path: str, num_runs: int, selfplay_choice: str):
+    # Find names from run-0 directory
+    # Loop over all run_id
+    rel_performances = {}
+    other_selfplay_names = []
+    rel_perf = {f.split('_')[-1].split('.')[0]: []
+                for f in listdir(f'{path}run-0/relative_performances/') if f.startswith(selfplay_choice)}
+
+    for run_id in range(num_runs):
+        run_path = f'{path}run-{run_id}/relative_performances'
+        for f in [f for f in listdir(run_path) if f.startswith(selfplay_choice)]:
+            other_sp = f.split('_')[-1].split('.')[0]
+            rel_perf[other_sp].append(pickle.load(open(join(run_path,f), 'rb')))
+
+    for k, v in rel_perf.items(): rel_perf[k] = np.array(v)
+    return rel_perf
 
 
 def optimality_view(experiment_dir):
@@ -33,14 +55,19 @@ def optimality_view(experiment_dir):
     experiment_runs = [d for d in listdir(experiment_dir) if isdir(join(experiment_dir, d))]
     run_id = st.sidebar.selectbox('Select experiment run_id', experiment_runs, 0)
     results_dir = f'{experiment_dir}{run_id}/'
-    run_dirs = [d for d in listdir(results_dir) if isdir(join(results_dir, d))]
+    selfplay_schemes = [d for d in listdir(results_dir)
+                        if isdir(join(results_dir, d)) and d != 'relative_performances']
 
-    selfplay_choice = st.sidebar.radio('Select Self-Play algorithm', run_dirs)
+    selfplay_choice = st.sidebar.radio('Select Self-Play algorithm', selfplay_schemes)
 
-    st.write(f'# Optimality view for {selfplay_choice} experiment run: {run_id}')
+    configs, final_winrate_matrix, final_nash, progression_nash, \
+        winrate_matrices, rel_pop_performances = load_results(experiment_dir, run_id, selfplay_choice)
 
-    configs, selfplay_schemes, final_winrate_matrix, final_nash, \
-        progression_nash, winrate_matrices = load_results(experiment_dir, run_id, selfplay_choice)
+    environment_name = configs['experiment']['environment'][0]
+    st.write(f'# Optimality view\n')
+    st.write(f'# Environment: {environment_name}')
+    st.write(f'## SP: {selfplay_choice}')
+    st.write(f'## Run: {run_id}')
 
     min_checkpoint = int(progression_nash.index[0])
     max_checkpoint = int(progression_nash.index[-1])
@@ -63,13 +90,38 @@ def optimality_view(experiment_dir):
     nash_support = np.array(list(filter(lambda x: not np.isnan(x),
                                         progression_nash.iloc[int(checkpoint / step_checkpoint)])))
     plot_winrate_matrix_and_support(winrate_matrix, nash_support)
+    
+    population_choices = st.multiselect('Select Self-play schemes to compare population performance',
+                                        list(rel_pop_performances.keys()))
+    relevant_relative_performances = {pop_name: rel_pop_performances[pop_name]
+                                      for pop_name in population_choices}
+    checkpoints = list(range(min_checkpoint, max_checkpoint + 1, step_checkpoint))
+    plot_relative_performance_evolutions(selfplay_choice,
+                                         relevant_relative_performances,
+                                         checkpoints)
 
-    show_experiment_config_file(configs)
-
-
-def show_experiment_config_file(configs):
     st.write('## Config file for experiment')
     st.write(configs)
+
+
+def plot_relative_performance_evolutions(selfplay_choice: str,
+                                         relative_performances: Dict[str, np.ndarray],
+                                         checkpoints):
+    fig, ax = plt.subplots(1,1)
+    plt.title(f'Evolution of relative population performance of {selfplay_choice}')
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('Relative population performance')
+
+    for sp_name, relative_performance_evolution in relative_performances.items():
+        mean = relative_performance_evolution.mean(axis=0)
+        std  = relative_performance_evolution.std(axis=0)
+        ax.plot(checkpoints, mean, label=f'vs {sp_name}')
+        ax.fill_between(checkpoints, mean + std, mean - std, alpha=0.3)
+
+    ax.legend()
+    plt.tight_layout()
+    st.pyplot()
+    plt.close()
 
 
 def plot_winrate_matrix_and_support(winrate_matrix, nash_support):
