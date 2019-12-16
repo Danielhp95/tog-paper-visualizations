@@ -139,7 +139,7 @@ def plot_winrate_matrix_and_support(winrate_matrix, nash_support):
 def plot_winrate_matrix(ax, winrate_matrix, show_annotations):
     ax.set_title('Empirical winrate matrix')
     sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
-                cmap=sns.color_palette('RdYlGn_r', 50)[::-1],
+                cmap=sns.color_palette('coolwarm', 50)[::-1],
                 vmin=0.0, vmax=1.0, cbar_kws={'label': 'Head to head winrates'})
     ax.set_xlabel('Agent ID')
     ax.set_ylabel('Agent ID')
@@ -152,7 +152,7 @@ def plot_progression_nash_equilibriums(progression_nash, highlight):
     max_comprehensible_size = 8
     show_annotations = len(progression_nash.shape) >= max_comprehensible_size
     sns.heatmap(progression_nash, annot=show_annotations, vmax=1.0, vmin=0.0,
-                cmap=sns.color_palette('RdYlGn_r', 50)[::-1], cbar_kws={'label': 'Support under Nash'})
+                cmap=sns.color_palette('coolwarm', 50)[::-1], cbar_kws={'label': 'Support under Nash'})
     # Workaround to prevent top and bottom of heatmaps to be cutoff
     # This is a known matplotlib bug
     ax.set_ylim(len(progression_nash) + 0.2, -0.2)
@@ -194,7 +194,7 @@ def plot_final_winrate_matrix(ax, winrate_matrix, selfplay_schemes,
                               population_size, number_populations):
     sns.heatmap(winrate_matrix, annot=False, ax=ax,
                 vmin=0, vmax=1, cbar=False,
-                cmap=sns.color_palette('RdYlGn_r', 50)[::-1])
+                cmap=sns.color_palette('coolwarm', 50)[::-1])
 
     first_tick = population_size / 2
     ticks = [first_tick + i * population_size
@@ -222,7 +222,7 @@ def plot_nash_support(ax, nash, show_ticks):
     column_nash = np.reshape(nash, (nash.shape[0], 1))
     sns.heatmap(column_nash, ax=ax,
                 vmin=0, vmax=max_support,
-                cmap=sns.color_palette('RdYlGn_r', 50)[::-1])
+                cmap=sns.color_palette('coolwarm', 50)[::-1])
     if show_ticks:
         ax.set_xticks([])
     else:
