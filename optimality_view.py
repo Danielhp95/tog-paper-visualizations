@@ -88,9 +88,9 @@ def optimality_view(experiment_dir):
     winrate_matrix = np.array(winrate_matrices[checkpoint])
     # TODO: fix this monstrosity
     nash_support = np.array(list(filter(lambda x: not np.isnan(x),
-                                        progression_nash.iloc[int(checkpoint / step_checkpoint)])))
+                                        progression_nash.iloc[int(checkpoint / step_checkpoint) - 1])))
     plot_winrate_matrix_and_support(winrate_matrix, nash_support)
-    
+
     population_choices = st.multiselect('Select Self-play schemes to compare population performance',
                                         list(rel_pop_performances.keys()))
     relevant_relative_performances = {pop_name: rel_pop_performances[pop_name]
@@ -118,6 +118,7 @@ def plot_relative_performance_evolutions(selfplay_choice: str,
         ax.plot(checkpoints, mean, label=f'vs {sp_name}')
         ax.fill_between(checkpoints, mean + std, mean - std, alpha=0.3)
 
+    ax.hlines(0, xmin=0, xmax=max(checkpoints), linestyle='dotted')
     ax.legend()
     plt.tight_layout()
     st.pyplot()
@@ -125,13 +126,15 @@ def plot_relative_performance_evolutions(selfplay_choice: str,
 
 
 def plot_winrate_matrix_and_support(winrate_matrix, nash_support):
-    fig, ax = plt.subplots(1, 2, gridspec_kw={'width_ratios': [10, 1]})
+    fig, ax = plt.subplots(nrows=1, ncols=2, gridspec_kw={'width_ratios': [15, 1]})
     max_comprehensible_size = 8
     show_annotations = winrate_matrix.shape[0] <= max_comprehensible_size
     plot_winrate_matrix(ax[0], winrate_matrix, show_annotations)
-    plot_nash_support(ax[1], nash_support, show_ticks=True)
+    plot_nash_support(ax[1], nash_support, column=True, show_ticks=True)
 
     plt.tight_layout()
+    plt.subplots_adjust(wspace=0, hspace=0)
+
     st.pyplot()
     plt.close()
 
@@ -140,7 +143,7 @@ def plot_winrate_matrix(ax, winrate_matrix, show_annotations):
     ax.set_title('Empirical winrate matrix')
     sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
                 cmap=sns.color_palette('coolwarm', 50)[::-1],
-                vmin=0.0, vmax=1.0, cbar_kws={'label': 'Head to head winrates'})
+                vmin=0.0, vmax=1.0, cbar=False, cbar_kws={'label': 'Head to head winrates'})
     ax.set_xlabel('Agent ID')
     ax.set_ylabel('Agent ID')
     ax.set_ylim(len(winrate_matrix) + 0.2, -0.2)
@@ -176,7 +179,7 @@ def plot_joint_final_winrate_matrix_and_nash(winrate_matrix: np.ndarray,
                               population_size, number_populations)
     plot_population_delimiting_lines(ax, winrate_matrix.shape[0],
                                      number_populations)
-    plot_nash_support(ax[1], nash, show_ticks=False)
+    plot_nash_support(ax[1], nash, column=True, show_ticks=False)
 
     fig.suptitle('Cross self-play nash evaluation')
 
@@ -185,7 +188,6 @@ def plot_joint_final_winrate_matrix_and_nash(winrate_matrix: np.ndarray,
     ax[0].set_ylim(len(winrate_matrix) + 0.2, -0.2)
     ax[1].set_ylim(len(winrate_matrix) + 0.2, -0.2)
 
-    plt.tight_layout()
     st.pyplot()
     plt.close()
 
@@ -217,15 +219,28 @@ def plot_population_delimiting_lines(ax, length, number_populations):
                      color='b', lw=2)
 
 
-def plot_nash_support(ax, nash, show_ticks):
+def plot_nash_support(ax, nash, column=True, show_ticks=True):
+    '''
+    param column: True/False Column or Row
+    '''
     max_support = np.max(nash)
-    column_nash = np.reshape(nash, (nash.shape[0], 1))
-    sns.heatmap(column_nash, ax=ax,
-                vmin=0, vmax=max_support,
+    nash_vector = np.reshape(nash, (nash.shape[0], 1) if column else (1, nash.shape[0]))
+    sns.heatmap(nash_vector, ax=ax,
+                vmin=0, vmax=max_support, cbar=True,
                 cmap=sns.color_palette('coolwarm', 50)[::-1])
     if show_ticks:
         ax.set_xticks([])
+        # leave_only_max_value_tick_visible(ax.yaxis.get_major_ticks())
     else:
         ax.set_xticks([])
         ax.set_yticks([])
+    ax.yaxis.tick_right()
     ax.set_ylim(len(nash) + 0.2, -0.2)
+
+
+def leave_only_max_value_tick_visible(ticks):
+    max_tick = max(map(lambda t: float(t.label1.get_text()), ticks))
+    print(max_tick)
+    for t in ticks:
+        if float(t.label1.get_text()) != max_tick:
+            t.set_visible(False)
