@@ -22,8 +22,8 @@ def load_results(experiment_dir: str, run_id: str, selfplay_choice: str):
     progression_nash = pd.read_csv(f'{run_path}/{selfplay_choice}/results/evolution_maxent_nash.csv', index_col=0)
     winrate_matrices = pickle.load(open(f'{run_path}/{selfplay_choice}/results/winrate_matrices.pickle', 'rb'))
 
-    final_winrate_matrix = pickle.load(open(f'{run_path}/final_winrate_matrix.pickle', 'rb'))
-    final_nash           = pickle.load(open(f'{run_path}/final_maxent_nash.pickle', 'rb'))
+    final_winrate_matrix = None # pickle.load(open(f'{run_path}/final_winrate_matrix.pickle', 'rb'))
+    final_nash           = None # pickle.load(open(f'{run_path}/final_maxent_nash.pickle', 'rb'))
 
     rel_pop_performances = load_relative_performances(f'{experiment_dir}',
                                                       configs['experiment']['number_of_runs'],
@@ -76,8 +76,8 @@ def optimality_view(experiment_dir):
                                    min_checkpoint, max_checkpoint, step=step_checkpoint)
 
     st.write('## Final winrate matrix and Nash support')
-    plot_joint_final_winrate_matrix_and_nash(final_winrate_matrix, final_nash,
-                                             selfplay_schemes=selfplay_schemes)
+    #plot_joint_final_winrate_matrix_and_nash(final_winrate_matrix, final_nash,
+    #                                         selfplay_schemes=selfplay_schemes)
 
     st.write(f'## Progression of nash equilibrium for {selfplay_choice}')
 

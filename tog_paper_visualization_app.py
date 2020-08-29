@@ -10,7 +10,7 @@ from optimality_view import optimality_view
 
 def data_directory_selection_sidebar_widget():
     import sys
-    script_param_default_result = sys.argv[1] if len(sys.argv) > 1 else './'
+    script_param_default_result = sys.argv[1] if len(sys.argv) > 1 else '6_self_play_algorithms_100_checkpoints_rps/'
     selected_results_directory = st.sidebar.text_input('Select results directory',
                                                        script_param_default_result)
     display_selected_directory(selected_results_directory)

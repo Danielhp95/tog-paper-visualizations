@@ -19,7 +19,7 @@ from regym.util.experiment_parsing import initialize_training_schemes
 from regym.util.experiment_parsing import filter_relevant_configurations
 from regym.environments import generate_task, EnvType, Task
 from regym.rl_loops.multiagent_loops import self_play_training
-from regym.training_schemes import SelfPlayTrainingScheme, NaiveSelfPlay, FullHistorySelfPlay
+from regym.training_schemes import SelfPlayTrainingScheme
 from regym.rl_algorithms import build_PPO_Agent, AgentHook
 from regym.rl_algorithms import load_population_from_path
 
@@ -49,8 +49,8 @@ def run_multiple_experiments(task, agents, sp_schemes,
 
 
 def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayTrainingScheme],
-               checkpoint_at_iterations: List[int], base_path: str, seed: int,
-               benchmarking_episodes: int):
+                      checkpoint_at_iterations: List[int], base_path: str, seed: int,
+                      benchmarking_episodes: int):
     trained_agent_paths = []
     for sp_scheme in sp_schemes:
         for agent in agents:
@@ -72,21 +72,21 @@ def single_experiment(task: Task, agents: List, selfplay_schemes: List[SelfPlayT
                                                      benchmarking_episodes,
                                                      base_path=relative_performances_path)
 
-    logging.info('Loading all trained agents')
-    joint_trained_population = reduce(lambda succ, path: succ + load_population_from_path(path),
-                                      trained_agent_paths, [])
-    logging.info('START winrate matrix computation of all trained policies')
-    final_winrate_matrix = compute_winrate_matrix_metagame(joint_trained_population,
-                                                           episodes_per_matchup=5,
-                                                           task=task)
-    logging.info('START Nash averaging computation of all trained policies')
-    maxent_nash, nash_avg = compute_nash_averaging(final_winrate_matrix,
-                                                   perform_logodds_transformation=True)
-    logging.info('Experiment FINISHED!')
-    dill.dump(final_winrate_matrix,
-                open(f'{base_path}/final_winrate_matrix.pickle', 'wb'))
-    dill.dump(maxent_nash,
-                open(f'{base_path}/final_maxent_nash.pickle', 'wb'))
+    # logging.info('Loading all trained agents')
+    # joint_trained_population = reduce(lambda succ, path: succ + load_population_from_path(path),
+    #                                   trained_agent_paths, [])
+    # logging.info('START winrate matrix computation of all trained policies')
+    # final_winrate_matrix = compute_winrate_matrix_metagame(joint_trained_population,
+    #                                                        episodes_per_matchup=5,
+    #                                                        task=task)
+    # logging.info('START Nash averaging computation of all trained policies')
+    # maxent_nash, nash_avg = compute_nash_averaging(final_winrate_matrix,
+    #                                                perform_logodds_transformation=True)
+    # logging.info('Experiment FINISHED!')
+    # dill.dump(final_winrate_matrix,
+    #             open(f'{base_path}/final_winrate_matrix.pickle', 'wb'))
+    # dill.dump(maxent_nash,
+    #             open(f'{base_path}/final_maxent_nash.pickle', 'wb'))
 
 
 def train_and_evaluate(task: Task, training_agent, self_play_scheme: SelfPlayTrainingScheme,
@@ -286,6 +286,7 @@ if __name__ == '__main__':
     setup_loggers(base_path)
     logger = logging.getLogger('Nash experiment')
 
+    import ipdb; ipdb.set_trace()
     run_multiple_experiments(task, agents, sp_schemes, experiment_config, seeds,
                              checkpoint_at_iterations, base_path,
                              number_of_runs, logger)

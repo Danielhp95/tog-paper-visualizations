@@ -1,0 +1,49 @@
+agents:
+  ppo:
+    actor_arch: None
+    adam_eps: 1.0e-05
+    critic_arch: None
+    discount: 0.99
+    entropy_weight: 0.01
+    gae_tau: 0.95
+    gradient_clip: 5
+    horizon: 128
+    learning_rate: 0.0003
+    mini_batch_size: 16
+    optimization_epochs: 10
+    phi_arch: MLP
+    ppo_ratio_clip: 0.2
+    use_cuda: false
+    use_gae: true
+experiment:
+  algorithms:
+  - ppo
+  benchmarking_episodes: 25
+  environment:
+  - RockPaperScissors-v0
+  - multiagent-simultaneous
+  experiment_id: 100check_6sp_rps_fragmented_3
+  number_checkpoints: 100
+  number_of_runs: 3
+  seeds:
+  - 8493
+  - 5782
+  - 69
+  self_play_training_schemes:
+  - psro
+  - deltauniform
+  - naiveselfplay
+  - halfhistorylimitselfplay
+  - fullhistorylimitselfplay
+self_play_training_schemes:
+  deltauniform-full:
+    delta: 0.0
+  deltauniform-half:
+    delta: 0.5
+  fullhistorylimitselfplay: null
+  halfhistorylimitselfplay: null
+  naiveselfplay: null
+  psro:
+    benchmarking_episodes: 25
+    match_outcome_rolling_window_size: 50
+    threshold_best_response: 0.72
