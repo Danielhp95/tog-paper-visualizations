@@ -1,10 +1,11 @@
+from typing import List, Tuple, Dict
 import sys
 from functools import reduce
 import logging
 import dill
 import os
 import time
-from typing import List, Tuple, Dict
+import argparse
 
 import yaml
 import torch
@@ -12,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 import gym_rock_paper_scissors
+import gym_connect4
 import gym_kuhn_poker
 
 from regym.util.experiment_parsing import initialize_agents
@@ -263,8 +265,11 @@ def setup_loggers(base_path: str):
 
 
 if __name__ == '__main__':
-    config_file_path = sys.argv[1]
-    experiment_config, agents_config, self_play_configs = load_configs(config_file_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', help='Path leading to YAML config file')
+    args = parser.parse_args()
+
+    experiment_config, agents_config, self_play_configs = load_configs(args.config)
     base_path = experiment_config['experiment_id']
     if not os.path.exists(base_path): os.mkdir(base_path)
     number_of_runs = experiment_config['number_of_runs']
@@ -286,7 +291,6 @@ if __name__ == '__main__':
     setup_loggers(base_path)
     logger = logging.getLogger('Nash experiment')
 
-    import ipdb; ipdb.set_trace()
     run_multiple_experiments(task, agents, sp_schemes, experiment_config, seeds,
                              checkpoint_at_iterations, base_path,
                              number_of_runs, logger)
