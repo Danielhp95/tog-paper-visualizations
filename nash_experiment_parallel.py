@@ -43,14 +43,14 @@ from relative_population_performance_experiment import compute_relative_pop_perf
 
 
 def run_multiple_experiments(task, agents, sp_schemes,
-                             experiment_config: Dict, seeds: List[int],
+                             experiment_config: Dict,
                              checkpoint_at_iterations: List[int],
                              base_path: str,
-                             number_of_runs: int,
+                             run_ids: List[int],
                              logger: logging.Logger):
     experiment_processes = []
     start_time = time.time()
-    for run_id in range(number_of_runs):
+    for run_id in run_ids:
         logger.info(f'Run {run_id}: STARTED')
 
         process_agents = deepcopy(agents)
@@ -65,7 +65,7 @@ def run_multiple_experiments(task, agents, sp_schemes,
                 agents=process_agents,
                 checkpoint_at_iterations=checkpoint_at_iterations,
                 benchmarking_episodes=experiment_config['benchmarking_episodes'],
-                base_path=f'{base_path}/run-{run_id}', seed=seeds[run_id],
+                base_path=f'{base_path}/run-{run_id}',
                 run_id=run_id
                 )
         )
@@ -80,7 +80,7 @@ def run_multiple_experiments(task, agents, sp_schemes,
 
 
 def single_experiment(task: Task, agents: List, sp_schemes: List[SelfPlayTrainingScheme],
-                      checkpoint_at_iterations: List[int], base_path: str, seed: int,
+                      checkpoint_at_iterations: List[int], base_path: str,
                       benchmarking_episodes: int, run_id: int):
     base_paths = [
         f'{base_path}/{sp_scheme.name}-{agent.name}'
@@ -99,7 +99,6 @@ def single_experiment(task: Task, agents: List, sp_schemes: List[SelfPlayTrainin
                 checkpoint_at_iterations=checkpoint_at_iterations,
                 benchmarking_episodes=benchmarking_episodes,
                 base_path=f'{base_path}/{sp_scheme.name}-{agent.name}',
-                seed=seed,
                 run_id=run_id
             )
             for sp_scheme in sp_schemes
@@ -140,14 +139,12 @@ def single_experiment(task: Task, agents: List, sp_schemes: List[SelfPlayTrainin
 
 
 def train_and_evaluate(task: Task, training_agent, self_play_scheme: SelfPlayTrainingScheme,
-                       checkpoint_at_iterations: List[int], base_path: str, seed: int,
+                       checkpoint_at_iterations: List[int], base_path: str,
                        benchmarking_episodes: int, run_id: int):
     print(base_path)
     logger = initialize_logger(
         name=f'Run: {run_id}. Experiment: Task: {task.name}. SP: {self_play_scheme.name}. Agent: {training_agent.name}'
     )
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
     population = training_phase(task, training_agent, self_play_scheme,
                                 checkpoint_at_iterations, base_path, run_id)
@@ -335,6 +332,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', help='Path leading to YAML config file')
+    parser.add_argument('--run_id', default=None,
+                        help='Identifier for the single_run that will be run. Ignoring number of runs in config file.')
     args = parser.parse_args()
 
     experiment_config, agents_config, self_play_configs = load_configs(args.config)
@@ -363,13 +362,16 @@ if __name__ == '__main__':
         log_path=f"{experiment_config['experiment_id']}/logs.logs")
     logger = initialize_logger(name='Nash experiment')
 
+    if args.run_id: run_ids = [int(args.run_id)]
+    else: run_ids = list(range(experiment_config['number_of_runs']))
+    logger.info(f'Running runs: {run_ids}')
+
     run_multiple_experiments(
         task,
         agents,
         sp_schemes,
         experiment_config,
-        seeds,
         checkpoint_at_iterations,
         experiment_config['experiment_id'],
-        experiment_config['number_of_runs'],
+        run_ids,
         logger)
