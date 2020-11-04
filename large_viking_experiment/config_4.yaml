@@ -1,0 +1,56 @@
+experiment:
+    experiment_id: 'connect4_large_viking'
+    environment: ['Connect4-v0', 'multiagent-sequential']
+    benchmarking_episodes: 40
+    number_of_runs: 1
+    # self_play_training_schemes: ['naiveselfplay', 'deltauniform', 'psro']
+    self_play_training_schemes: ['psro']
+    algorithms: ['ppo']
+    agent_updates_per_checkpoint: 2
+    number_checkpoints: 75
+    seeds: []
+
+cnn_arch: &cnn_architecture
+    phi_arch: 'CNN'
+    use_batch_normalization: True
+    preprocessed_input_dimensions: [7, 6]
+    channels: [3, 10, 20, 20, 20, 1]
+    kernel_sizes: [3, 3, 3, 3, 3]
+    paddings: [1, 1, 1, 1, 1]
+    strides: [1, 1, 1, 1, 1]
+    residual_connections: [[0,1], [1,2], [2,3], [3,4]]
+
+agents:
+    ppo:
+        <<: *cnn_architecture
+        discount: 0.99
+        use_gae: True
+        use_cuda: False
+        gae_tau: 0.95
+        entropy_weight: 0.01
+        gradient_clip: 5
+        optimization_epochs: 10
+        mini_batch_size: 16
+        ppo_ratio_clip: 0.2
+        learning_rate: 3.0e-4
+        adam_eps: 1.0e-5
+        horizon: 20
+        actor_arch: 'None'
+        critic_arch: 'None'
+
+self_play_training_schemes:
+    
+    naiveselfplay:
+    deltauniform-half:
+        delta: 0.5
+        save_every_n_episodes: 5
+    deltauniform-full:
+        delta: 0.0
+        save_every_n_episodes: 5
+    deltalimituniform-full:
+        delta: 0.0
+        save_every_n_episodes: 5
+    psro:
+        benchmarking_episodes: 40
+        match_outcome_rolling_window_size: 50
+        threshold_best_response: 0.72
