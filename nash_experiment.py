@@ -137,7 +137,8 @@ def save_results(winrate_submatrices: List[np.ndarray],
                  evolution_maxent_nash_and_nash_averaging: List[Tuple[np.ndarray]],
                  checkpoint_at_iterations: List[int],
                  save_path: str):
-    if not os.path.exists(save_path): os.makedirs(save_path)
+    if not os.path.exists(save_path):
+        os.makedirs(save_path, exist_ok=True)
     save_winrate_matrices(winrate_submatrices, checkpoint_at_iterations, save_path)
     save_evolution_maxent_nash_and_nash_averaging(evolution_maxent_nash_and_nash_averaging,
                                                   checkpoint_at_iterations, save_path)
@@ -179,8 +180,8 @@ def training_phase(task: Task, training_agent, self_play_scheme: SelfPlayTrainin
     agents_to_benchmark = [] # Come up with better name
 
     if not os.path.exists(base_path):
-        os.makedirs(base_path)
-        os.mkdir(menagerie_path)
+        os.makedirs(base_path, exist_ok=True)
+        os.makedirs(menagerie_path, exist_ok=True)
 
     completed_iterations, start_time = 0, time.time()
 
@@ -281,7 +282,7 @@ if __name__ == '__main__':
     experiment_config, agents_config, self_play_configs = load_configs(args.config)
 
     if not os.path.exists(experiment_config['experiment_id']):
-        os.mkdir(experiment_config['experiment_id'])
+        os.makedirs(experiment_config['experiment_id'], exist_ok=True)
 
     setup_loggers(experiment_config['experiment_id'])
     logger = logging.getLogger('Nash experiment')
